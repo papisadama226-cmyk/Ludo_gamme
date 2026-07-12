@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Ludo Online</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12142b; --panel:#1c1f42; --panel-2:#252a52;
+    --red:#e63946; --green:#06a77d; --yellow:#f4b400; --blue:#3a86ff;
+    --gold:#ffd166; --text:#f1f1f6; --text-dim:#9797b8;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:'Baloo 2', system-ui, sans-serif; min-height:100vh; }
+  .screen{ min-height:100vh; display:flex; flex-direction:column; padding:16px; gap:16px; }
+  .hidden{ display:none !important; }
+  .card{ background:var(--panel); border-radius:18px; padding:18px; border:1px solid #262a52; }
+  h1{ font-size:22px; margin:0 0 4px; }
+  h2{ font-size:15px; color:var(--text-dim); margin:0 0 14px; font-weight:500; }
+  input{
+    background:var(--panel-2); border:1px solid #3a3f70; color:var(--text);
+    border-radius:10px; padding:12px 14px; font-size:16px; width:100%;
+    margin-bottom:10px; font-family:'Baloo 2', sans-serif;
+  }
+  .btn{
+    font-family:'Baloo 2', sans-serif; font-weight:700; border:none; border-radius:14px;
+    padding:14px 18px; font-size:16px; cursor:pointer; color:#14162b; background:var(--gold);
+    width:100%; transition: transform .1s ease;
+  }
+  .btn:active{ transform:scale(0.97); }
+  .btn.outline{ background:transparent; color:var(--text); border:1px solid #3a3f70; }
+  .btn.small{ width:auto; padding:10px 16px; font-size:14px; }
+  .link-text{ color:var(--gold); text-align:center; font-size:14px; cursor:pointer; margin-top:8px; }
+  .error-text{ color:var(--red); font-size:13px; margin-top:-4px; margin-bottom:10px; min-height:16px; }
+
+  .topbar{ display:flex; justify-content:space-between; align-items:center; }
+  .pill{
+    display:flex; align-items:center; gap:6px; background:var(--panel-2);
+    padding:8px 14px; border-radius:999px; font-family:'JetBrains Mono', monospace; font-weight:700; font-size:13px;
+  }
+  .home-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; }
+  .home-btn{
+    background:var(--panel-2); border-radius:16px; padding:20px 12px; text-align:center;
+    border:1px solid #2c2f5a; cursor:pointer; font-weight:700; font-size:15px;
+  }
+  .home-btn .emoji{ font-size:28px; display:block; margin-bottom:8px; }
+
+  .code-display{
+    font-family:'JetBrains Mono', monospace; font-size:32px; font-weight:700;
+    text-align:center; letter-spacing:6px; color:var(--gold); background:var(--panel-2);
+    padding:16px; border-radius:12px; margin:12px 0;
+  }
+
+  .board-wrap{ display:flex; justify-content:center; margin-top:8px; }
+  .board{
+    display:grid; grid-template-columns:repeat(15, 1fr); grid-template-rows:repeat(15, 1fr);
+    width:min(94vw, 420px); aspect-ratio:1/1; background:#0d0e22; border-radius:12px;
+    overflow:hidden; position:relative; border:3px solid #2c2f5a;
+  }
+  .cell{ border:1px solid rgba(255,255,255,0.04); }
+  .yard-red{ background:rgba(230,57,70,0.18); } .yard-green{ background:rgba(6,167,125,0.18); }
+  .yard-yellow{ background:rgba(244,180,0,0.18); } .yard-blue{ background:rgba(58,134,255,0.18); }
+  .path-cell{ background:#1a1c3a; }
+  .home-red{ background:rgba(230,57,70,0.4); } .home-green{ background:rgba(6,167,125,0.4); }
+  .home-yellow{ background:rgba(244,180,0,0.4); } .home-blue{ background:rgba(58,134,255,0.4); }
+  .center{ background:var(--gold); }
+  .token{
+    position:absolute; width:7%; height:7%; border-radius:50%; border:2px solid #0d0e22;
+    transform:translate(-50%,-50%); box-shadow:0 2px 4px rgba(0,0,0,.4);
+    transition: top .25s ease, left .25s ease; z-index:5;
+  }
+  .token-red{ background:var(--red); } .token-green{ background:var(--green); }
+  .token-yellow{ background:var(--yellow); } .token-blue{ background:var(--blue); }
+
+  .bottom-bar{
+    padding:16px; background:var(--panel); border-top:1px solid #2c2f5a;
+    display:flex; align-items:center; gap:16px; position:sticky; bottom:0;
+  }
+  .dice{
+    width:64px; height:64px; background:var(--gold); border-radius:16px;
+    display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800;
+    color:#14162b; cursor:pointer; flex-shrink:0; transition: transform .15s ease;
+  }
+  .dice.rolling{ animation: shake .5s ease; }
+  @keyframes shake{ 0%,100%{transform:rotate(0);} 25%{transform:rotate(-15deg);} 75%{transform:rotate(15deg);} }
+  .status-text{ flex:1; font-size:14px; color:var(--text-dim); }
+  .status-text b{ color:var(--text); }
+  #winnerBanner{ background:var(--gold); color:#14162b; padding:14px 16px; text-align:center; font-weight:800; font-size:16px; }
+  .backlink{ color:var(--text-dim); font-size:14px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<!-- Écran Auth -->
+<div class="screen" id="screenAuth">
+  <div class="card" style="margin-top:40px;">
+    <h1 id="authTitle">Connexion</h1>
+    <h2 id="authSubtitle">Content de te revoir</h2>
+    <input type="text" id="pseudoInput" placeholder="Pseudo" class="hidden" />
+    <input type="email" id="emailInput" placeholder="Adresse email" />
+    <input type="password" id="passwordInput" placeholder="Mot de passe" />
+    <div class="error-text" id="authError"></div>
+    <button class="btn" id="btnAuthSubmit">Se connecter</button>
+    <div class="link-text" id="linkToggleMode">Pas encore de compte ? S'inscrire</div>
+    <div class="link-text" id="linkForgotPassword">Mot de passe oublié ?</div>
+  </div>
+</div>
+
+<!-- Écran Accueil -->
+<div class="screen hidden" id="screenHome">
+  <div class="topbar">
+    <div class="pill">👤 <span id="homePseudo">--</span> <span id="premiumBadge" class="hidden">⭐</span></div>
+    <div class="pill">🪙 <span id="homePieces">0</span></div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <h1 id="homeGreeting">Salut !</h1>
+    <h2>Niveau <span id="homeNiveau">1</span> · <span id="homeXp">0</span> XP</h2>
+  </div>
+  <div class="home-grid">
+    <div class="home-btn" id="btnJouerLigne"><span class="emoji">🌐</span>Jouer en ligne</div>
+    <div class="home-btn" id="btnJouerRobot"><span class="emoji">🤖</span>Contre le robot<br><small style="color:var(--text-dim);">(bientôt)</small></div>
+    <div class="home-btn" id="btnBoutique"><span class="emoji">🛒</span>Boutique<br><small style="color:var(--text-dim);">(bientôt)</small></div>
+    <div class="home-btn" id="btnClassement"><span class="emoji">🏆</span>Classement<br><small style="color:var(--text-dim);">(bientôt)</small></div>
+  </div>
+  <button class="btn outline" id="btnLogout" style="margin-top:auto;">Déconnexion</button>
+</div>
+
+<!-- Écran Salle (créer/rejoindre) -->
+<div class="screen hidden" id="screenSalle">
+  <div class="backlink" id="backFromSalle">← Retour</div>
+  <div class="card">
+    <h1>Créer une salle</h1>
+    <h2>Choisis le format</h2>
+    <div style="display:flex; gap:10px;">
+      <button class="btn outline" id="btnFormat2">1v1</button>
+      <button class="btn outline" id="btnFormat4">4 joueurs</button>
+    </div>
+    <button class="btn" id="btnCreerSalle" style="margin-top:14px;">Créer</button>
+  </div>
+  <div class="card">
+    <h1>Rejoindre une salle</h1>
+    <h2>Entre le code reçu</h2>
+    <input type="text" id="codeInput" placeholder="Ex: A1B2C3" style="text-transform:uppercase;" />
+    <button class="btn" id="btnRejoindre">Rejoindre</button>
+  </div>
+</div>
+
+<!-- Écran Salle d'attente -->
+<div class="screen hidden" id="screenAttente">
+  <div class="card" style="text-align:center; margin-top:40px;">
+    <h1>Salle créée</h1>
+    <h2>Partage ce code avec tes amis</h2>
+    <div class="code-display" id="codeDisplay">------</div>
+    <div class="status-text" id="attenteStatus">En attente de joueurs (<span id="attenteCount">1</span>/<span id="attenteMax">2</span>)</div>
+  </div>
+</div>
+
+<!-- Écran Jeu -->
+<div class="screen hidden" id="screenGame" style="padding:0;">
+  <div id="winnerBanner" class="hidden"><span id="winnerText"></span></div>
+  <div class="board-wrap" style="margin-top:16px;">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="bottom-bar">
+    <div class="dice" id="diceBtn">🎲</div>
+    <div class="status-text" id="statusText">En attente...</div>
+  </div>
+</div>
+
+<!-- Écran Boutique -->
+<div class="screen hidden" id="screenBoutique">
+  <div class="backlink" id="backFromBoutique">← Retour</div>
+
+  <div class="card">
+    <h1>⭐ Abonnement Premium</h1>
+    <h2>500 FCFA / mois — sans pub, badge, bonus quotidien, avatars &amp; dés premium</h2>
+    <button class="btn" data-type="abonnement" data-montant="500" data-label="Abonnement Premium (1 mois)">
+      S'abonner — 500 FCFA
+    </button>
+  </div>
+
+  <div class="card">
+    <h1>🪙 Acheter des pièces</h1>
+    <h2>Les pièces servent uniquement à la boutique cosmétique — jamais un avantage en partie</h2>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button class="btn outline pack-btn" data-type="pieces" data-montant="350" data-pieces="500" data-label="Pack 500 pièces">350 FCFA → 500 pièces</button>
+      <button class="btn outline pack-btn" data-type="pieces" data-montant="500" data-pieces="800" data-label="Pack 800 pièces">500 FCFA → 800 pièces</button>
+      <button class="btn outline pack-btn" data-type="pieces" data-montant="1000" data-pieces="1800" data-label="Pack 1800 pièces">1000 FCFA → 1800 pièces</button>
+      <button class="btn outline pack-btn" data-type="pieces" data-montant="2000" data-pieces="4000" data-label="Pack 4000 pièces">2000 FCFA → 4000 pièces</button>
+      <button class="btn outline pack-btn" data-type="pieces" data-montant="5000" data-pieces="11000" data-label="Pack 11000 pièces">5000 FCFA → 11 000 pièces</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale Paiement FineoPay -->
+<div class="screen hidden" id="screenPaiement" style="position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.6);">
+  <div class="card" style="margin:auto; max-width:340px;">
+    <h1 id="paiementTitre">Paiement</h1>
+    <h2>1. Paie sur FineoPay, 2. déclare ton paiement ici</h2>
+    <a href="https://app.fineopay.com/hkmi_touroi_lNv/bamba_9tO/checkout" target="_blank" class="btn" style="display:block; text-align:center; text-decoration:none; margin-bottom:16px;">
+      Payer sur FineoPay 🔗
+    </a>
+    <div class="status-text" id="paiementMontantInfo" style="margin-bottom:10px;"></div>
+    <label>Référence / numéro utilisé pour payer</label>
+    <input type="text" id="referencePaiementInput" placeholder="Numéro ou référence transaction" />
+    <button class="btn" id="btnDeclarerPaiement" style="width:100%; margin-top:8px;">Déclarer mon paiement</button>
+    <button class="btn outline" id="btnFermerPaiement" style="width:100%; margin-top:8px;">Annuler</button>
+  </div>
+</div>
+
+<!-- Écran Config IA -->
+<div class="screen hidden" id="screenSoloConfig">
+  <div class="backlink" id="backFromSolo">← Retour</div>
+  <div class="card">
+    <h1>🤖 Jouer contre le robot</h1>
+    <h2>Aucune connexion requise pour ce mode</h2>
+    <label>Difficulté</label>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button class="btn outline diff-btn" data-diff="facile">Facile</button>
+      <button class="btn outline diff-btn" data-diff="moyen">Moyen</button>
+      <button class="btn outline diff-btn" data-diff="difficile">Difficile</button>
+    </div>
+    <label>Format</label>
+    <div style="display:flex; gap:8px;">
+      <button class="btn outline solo-format-btn" data-format="2">1 contre 1 bot</button>
+      <button class="btn outline solo-format-btn" data-format="4">1 contre 3 bots</button>
+    </div>
+    <button class="btn" id="btnCommencerSolo" style="margin-top:14px;">Commencer</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification,
+  setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
+  collection, addDoc, query, where, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCPlJJKidt1WOR4KgGPC9NyiZtkrYV9dCs",
+  authDomain: "pawtournoi.firebaseapp.com",
+  projectId: "pawtournoi",
+  storageBucket: "pawtournoi.firebasestorage.app",
+  messagingSenderId: "1073189230215",
+  appId: "1:1073189230215:web:0692cb7e00e8c1b48bca22"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+await setPersistence(auth, browserLocalPersistence);
+
+let currentUser = null;
+let isSignupMode = false;
+let selectedFormat = 2;
+let currentGameId = null;
+let unsubGame = null;
+
+const COLORS = ['red', 'green', 'yellow', 'blue'];
+
+// ---------- Plateau (mêmes coordonnées que Ludo Cash) ----------
+const PATH = [
+  [6,1],[6,2],[6,3],[6,4],[6,5],
+  [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
+  [0,7],[0,8],
+  [1,8],[2,8],[3,8],[4,8],[5,8],
+  [6,9],[6,10],[6,11],[6,12],[6,13],[6,14],
+  [7,14],[8,14],
+  [8,13],[8,12],[8,11],[8,10],[8,9],
+  [9,8],[10,8],[11,8],[12,8],[13,8],[14,8],
+  [14,7],[14,6],
+  [13,6],[12,6],[11,6],[10,6],[9,6],
+  [8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+  [7,0],
+];
+const ENTRY_OFFSET = { red: 0, green: 13, yellow: 26, blue: 39 };
+const HOME_STRETCH = {
+  red:    [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+  green:  [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],
+  yellow: [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+  blue:   [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
+};
+const YARD_SLOTS = {
+  red:    [[1,1],[1,3],[3,1],[3,3]],
+  green:  [[1,10],[1,12],[3,10],[3,12]],
+  yellow: [[10,10],[10,12],[12,10],[12,12]],
+  blue:   [[10,1],[10,3],[12,1],[12,3]],
+};
+function cellToPercent([row, col]) {
+  return { top: `${(row + 0.5) / 15 * 100}%`, left: `${(col + 0.5) / 15 * 100}%` };
+}
+function absolutePosition(color, relPos, slotIndex) {
+  if (relPos === -1) return cellToPercent(YARD_SLOTS[color][slotIndex]);
+  if (relPos >= 51) return cellToPercent(HOME_STRETCH[color][relPos - 51] || [7,7]);
+  const idx = (ENTRY_OFFSET[color] + relPos) % 52;
+  return cellToPercent(PATH[idx]);
+}
+
+function showScreen(id) {
+  ['screenAuth','screenHome','screenSalle','screenAttente','screenGame','screenBoutique','screenSoloConfig'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+// ---------- Auth ----------
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { showScreen('screenAuth'); return; }
+  currentUser = user;
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    renderHome(snap.data());
+    showScreen('screenHome');
+    listenUser(user.uid);
+  }
+});
+
+function listenUser(uid) {
+  onSnapshot(doc(db, 'users', uid), (snap) => {
+    if (snap.exists()) renderHome(snap.data());
+  });
+}
+function renderHome(data) {
+  document.getElementById('homePseudo').textContent = data.pseudo || '--';
+  document.getElementById('homeGreeting').textContent = `Salut, ${data.pseudo || ''} !`;
+  document.getElementById('homePieces').textContent = data.pieces ?? 0;
+  document.getElementById('homeNiveau').textContent = data.niveau ?? 1;
+  document.getElementById('homeXp').textContent = data.xp ?? 0;
+  const isPremiumActive = data.premium && data.premiumExpiry && data.premiumExpiry.toMillis() > Date.now();
+  document.getElementById('premiumBadge').classList.toggle('hidden', !isPremiumActive);
+}
+
+document.getElementById('linkToggleMode').addEventListener('click', () => {
+  isSignupMode = !isSignupMode;
+  document.getElementById('authTitle').textContent = isSignupMode ? 'Inscription' : 'Connexion';
+  document.getElementById('authSubtitle').textContent = isSignupMode ? 'Crée ton compte Ludo Online' : 'Content de te revoir';
+  document.getElementById('pseudoInput').classList.toggle('hidden', !isSignupMode);
+  document.getElementById('btnAuthSubmit').textContent = isSignupMode ? "S'inscrire" : 'Se connecter';
+  document.getElementById('linkToggleMode').textContent = isSignupMode ? 'Déjà un compte ? Se connecter' : "Pas encore de compte ? S'inscrire";
+  document.getElementById('authError').textContent = '';
+});
+
+document.getElementById('linkForgotPassword').addEventListener('click', async () => {
+  const email = document.getElementById('emailInput').value.trim();
+  if (!email) { document.getElementById('authError').textContent = 'Renseigne ton email d\'abord.'; return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    document.getElementById('authError').style.color = 'var(--green)';
+    document.getElementById('authError').textContent = 'Email de réinitialisation envoyé.';
+  } catch (err) {
+    document.getElementById('authError').style.color = 'var(--red)';
+    document.getElementById('authError').textContent = translateAuthError(err.code);
+  }
+});
+
+document.getElementById('btnAuthSubmit').addEventListener('click', async () => {
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const pseudo = document.getElementById('pseudoInput').value.trim();
+  const errorEl = document.getElementById('authError');
+  errorEl.style.color = 'var(--red)';
+  errorEl.textContent = '';
+
+  if (!email || !password || (isSignupMode && !pseudo)) {
+    errorEl.textContent = 'Remplis tous les champs.';
+    return;
+  }
+
+  try {
+    if (isSignupMode) {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await sendEmailVerification(cred.user);
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        pseudo, avatar: null, niveau: 1, xp: 0,
+        victoires: 0, defaites: 0, partiesJouees: 0,
+        pieces: 500, // bonus de bienvenue
+        premium: false,
+        dateInscription: serverTimestamp(),
+      });
+      errorEl.style.color = 'var(--green)';
+      errorEl.textContent = 'Compte créé ! Vérifie ta boîte mail.';
+    } else {
+      await signInWithEmailAndPassword(auth, email, password);
+    }
+  } catch (err) {
+    errorEl.textContent = translateAuthError(err.code);
+  }
+});
+
+function translateAuthError(code) {
+  const map = {
+    'auth/email-already-in-use': 'Cet email est déjà utilisé.',
+    'auth/invalid-email': 'Email invalide.',
+    'auth/weak-password': 'Mot de passe trop court (6 caractères min).',
+    'auth/user-not-found': 'Aucun compte avec cet email.',
+    'auth/wrong-password': 'Mot de passe incorrect.',
+    'auth/invalid-credential': 'Email ou mot de passe incorrect.',
+  };
+  return map[code] || 'Une erreur est survenue.';
+}
+
+document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
+
+// ---------- Navigation accueil ----------
+document.getElementById('btnJouerLigne').addEventListener('click', () => showScreen('screenSalle'));
+document.getElementById('backFromSalle').addEventListener('click', () => showScreen('screenHome'));
+document.getElementById('btnJouerRobot').addEventListener('click', () => showScreen('screenSoloConfig'));
+document.getElementById('backFromSolo').addEventListener('click', () => showScreen('screenHome'));
+document.getElementById('btnClassement').addEventListener('click', () => alert('Cette fonctionnalité arrive bientôt !'));
+document.getElementById('btnBoutique').addEventListener('click', () => showScreen('screenBoutique'));
+document.getElementById('backFromBoutique').addEventListener('click', () => showScreen('screenHome'));
+
+// ---------- Créer / rejoindre une salle ----------
+function setFormat(n) {
+  selectedFormat = n;
+  document.getElementById('btnFormat2').style.background = n === 2 ? 'var(--gold)' : 'transparent';
+  document.getElementById('btnFormat2').style.color = n === 2 ? '#14162b' : 'var(--text)';
+  document.getElementById('btnFormat4').style.background = n === 4 ? 'var(--gold)' : 'transparent';
+  document.getElementById('btnFormat4').style.color = n === 4 ? '#14162b' : 'var(--text)';
+}
+document.getElementById('btnFormat2').addEventListener('click', () => setFormat(2));
+document.getElementById('btnFormat4').addEventListener('click', () => setFormat(4));
+setFormat(2);
+
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+document.getElementById('btnCreerSalle').addEventListener('click', async () => {
+  const code = generateCode();
+  const gameRef = await addDoc(collection(db, 'games'), {
+    code,
+    players: [currentUser.uid],
+    colors: { [currentUser.uid]: COLORS[0] },
+    maxPlayers: selectedFormat,
+    tokens: { [currentUser.uid]: [-1, -1, -1, -1] },
+    currentTurnUid: currentUser.uid,
+    awaitingMove: false,
+    status: 'attente',
+    createdAt: serverTimestamp(),
+  });
+  currentGameId = gameRef.id;
+  document.getElementById('codeDisplay').textContent = code;
+  document.getElementById('attenteMax').textContent = selectedFormat;
+  showScreen('screenAttente');
+  listenWaitingRoom(gameRef.id);
+});
+
+document.getElementById('btnRejoindre').addEventListener('click', async () => {
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (!code) return;
+  const q = query(collection(db, 'games'), where('code', '==', code), where('status', '==', 'attente'));
+  const { getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const snap = await getDocs(q);
+  if (snap.empty) { alert('Code introuvable ou salle déjà pleine.'); return; }
+  const gameDoc = snap.docs[0];
+  const game = gameDoc.data();
+
+  const usedColors = Object.values(game.colors || {});
+  const nextColor = COLORS.find(c => !usedColors.includes(c));
+  const newPlayers = [...game.players, currentUser.uid];
+
+  await updateDoc(doc(db, 'games', gameDoc.id), {
+    players: newPlayers,
+    [`colors.${currentUser.uid}`]: nextColor,
+    [`tokens.${currentUser.uid}`]: [-1, -1, -1, -1],
+    status: newPlayers.length >= game.maxPlayers ? 'en_cours' : 'attente',
+  });
+  currentGameId = gameDoc.id;
+  enterGame(gameDoc.id);
+});
+
+function listenWaitingRoom(gameId) {
+  onSnapshot(doc(db, 'games', gameId), (snap) => {
+    const game = snap.data();
+    if (!game) return;
+    document.getElementById('attenteCount').textContent = game.players.length;
+    if (game.status === 'en_cours') {
+      enterGame(gameId);
+    }
+  });
+}
+
+// ---------- Jeu ----------
+// ---------- Boutique (pièces + abonnement) ----------
+let paiementEnCours = null; // { type, montant, pieces?, label }
+
+document.querySelectorAll('[data-type]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    paiementEnCours = {
+      type: btn.dataset.type,
+      montant: Number(btn.dataset.montant),
+      pieces: btn.dataset.pieces ? Number(btn.dataset.pieces) : null,
+      label: btn.dataset.label,
+    };
+    document.getElementById('paiementTitre').textContent = paiementEnCours.label;
+    document.getElementById('paiementMontantInfo').textContent =
+      `Montant à payer sur FineoPay : ${paiementEnCours.montant} FCFA`;
+    document.getElementById('screenPaiement').classList.remove('hidden');
+  });
+});
+
+document.getElementById('btnFermerPaiement').addEventListener('click', () => {
+  document.getElementById('screenPaiement').classList.add('hidden');
+  document.getElementById('referencePaiementInput').value = '';
+});
+
+document.getElementById('btnDeclarerPaiement').addEventListener('click', async () => {
+  const reference = document.getElementById('referencePaiementInput').value.trim();
+  if (!reference) { alert("Renseigne la référence ou le numéro utilisé pour payer."); return; }
+
+  await addDoc(collection(db, 'achats'), {
+    uid: currentUser.uid,
+    type: paiementEnCours.type, // "pieces" | "abonnement"
+    montant: paiementEnCours.montant,
+    piecesAchetees: paiementEnCours.pieces || null,
+    reference,
+    status: 'en_attente', // validation manuelle par l'admin dans Firebase
+    createdAt: serverTimestamp(),
+  });
+
+  alert("Paiement déclaré ! Tes pièces / ton abonnement seront activés après vérification.");
+  document.getElementById('screenPaiement').classList.add('hidden');
+  document.getElementById('referencePaiementInput').value = '';
+});
+
+// ---------- Mode Solo contre l'IA (100% côté client, jouable hors connexion) ----------
+let soloMode = false;
+let soloState = null; // { players:[{color, tokens, isBot}], currentIndex, awaitingMove, lastRoll, difficulty }
+let soloDifficulty = 'moyen';
+let soloFormat = 2;
+
+// Cases sécurisées : la case de départ (entrée) de chaque couleur — un pion adverse ne peut pas y être capturé
+const SAFE_ABS_INDEXES = Object.values(ENTRY_OFFSET); // [0, 13, 26, 39]
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    soloDifficulty = btn.dataset.diff;
+    document.querySelectorAll('.diff-btn').forEach(b => { b.style.background = 'transparent'; b.style.color = 'var(--text)'; });
+    btn.style.background = 'var(--gold)'; btn.style.color = '#14162b';
+  });
+});
+document.querySelectorAll('.solo-format-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    soloFormat = Number(btn.dataset.format);
+    document.querySelectorAll('.solo-format-btn').forEach(b => { b.style.background = 'transparent'; b.style.color = 'var(--text)'; });
+    btn.style.background = 'var(--gold)'; btn.style.color = '#14162b';
+  });
+});
+// Sélection par défaut
+document.querySelector('[data-diff="moyen"]').click();
+document.querySelector('[data-format="2"]').click();
+
+document.getElementById('btnCommencerSolo').addEventListener('click', () => {
+  const players = [{ color: COLORS[0], tokens: [-1,-1,-1,-1], isBot: false }];
+  for (let i = 1; i < soloFormat; i++) {
+    players.push({ color: COLORS[i], tokens: [-1,-1,-1,-1], isBot: true });
+  }
+  soloState = {
+    players,
+    currentIndex: 0,
+    awaitingMove: false,
+    lastRoll: null,
+    status: 'en_cours',
+    winnerIndex: null,
+  };
+  soloMode = true;
+  if (unsubGame) { unsubGame(); unsubGame = null; }
+  showScreen('screenGame');
+  document.getElementById('winnerBanner').classList.add('hidden');
+  buildBoardSkeleton();
+  renderSolo();
+});
+
+// Renvoie l'index absolu (0-50) sur le chemin commun, ou null si hors chemin commun (yard/couloir/arrivée)
+function getAbsIndex(color, relPos) {
+  if (relPos < 0 || relPos > 50) return null;
+  return (ENTRY_OFFSET[color] + relPos) % 52;
+}
+
+// Applique la capture : si un pion adverse est sur la même case (non sécurisée), il repart au yard
+function applyCapture(state, movingPlayerIdx, newRelPos) {
+  const movingColor = state.players[movingPlayerIdx].color;
+  const absIdx = getAbsIndex(movingColor, newRelPos);
+  if (absIdx === null || SAFE_ABS_INDEXES.includes(absIdx)) return [];
+  const captured = [];
+  state.players.forEach((p, pIdx) => {
+    if (pIdx === movingPlayerIdx) return;
+    p.tokens.forEach((pos, tIdx) => {
+      if (getAbsIndex(p.color, pos) === absIdx) {
+        p.tokens[tIdx] = -1;
+        captured.push({ playerIdx: pIdx, tokenIdx: tIdx });
+      }
+    });
+  });
+  return captured;
+}
+
+function getValidMoves(tokens, diceValue) {
+  const moves = [];
+  tokens.forEach((pos, i) => {
+    if (pos === 57) return; // déjà arrivé
+    if (pos === -1) { if (diceValue === 6) moves.push(i); return; }
+    if (pos + diceValue <= 57) moves.push(i);
+  });
+  return moves;
+}
+
+function soloRollDice() {
+  if (soloState.status !== 'en_cours' || soloState.awaitingMove) return;
+  const value = Math.floor(Math.random() * 6) + 1;
+  soloState.lastRoll = value;
+  const player = soloState.players[soloState.currentIndex];
+  const valid = getValidMoves(player.tokens, value);
+  if (valid.length === 0) {
+    // Aucun coup possible : passe le tour (un 6 aurait toujours au moins l'option de sortir si un pion est au yard,
+    // donc ce cas arrive seulement si tous les pions sont finis ou bloqués)
+    passTurn(value === 6);
+    renderSolo();
+    return;
+  }
+  soloState.awaitingMove = true;
+  renderSolo();
+  if (player.isBot) {
+    setTimeout(() => botChooseMove(valid), 700);
+  }
+}
+
+function passTurn(replay) {
+  soloState.awaitingMove = false;
+  if (!replay) {
+    soloState.currentIndex = (soloState.currentIndex + 1) % soloState.players.length;
+  }
+  maybeTriggerBot();
+}
+
+function soloMoveTokenLocal(tokenIndex) {
+  const player = soloState.players[soloState.currentIndex];
+  const value = soloState.lastRoll;
+  const current = player.tokens[tokenIndex];
+  let next;
+  if (current === -1) { next = 0; } else { next = current + value; }
+  player.tokens[tokenIndex] = next;
+
+  applyCapture(soloState, soloState.currentIndex, next);
+
+  const hasWon = player.tokens.every(p => p === 57);
+  if (hasWon) {
+    soloState.status = 'terminee';
+    soloState.winnerIndex = soloState.currentIndex;
+    renderSolo();
+    return;
+  }
+
+  passTurn(value === 6);
+  renderSolo();
+}
+
+function maybeTriggerBot() {
+  const player = soloState.players[soloState.currentIndex];
+  if (player.isBot && soloState.status === 'en_cours') {
+    setTimeout(() => soloRollDice(), 800);
+  }
+}
+
+// --- IA : choix du pion à déplacer selon la difficulté ---
+function botChooseMove(validMoves) {
+  const player = soloState.players[soloState.currentIndex];
+  const value = soloState.lastRoll;
+  let chosen;
+
+  if (soloDifficulty === 'facile') {
+    chosen = validMoves[Math.floor(Math.random() * validMoves.length)];
+  } else {
+    // Moyen & Difficile : priorité 1) capturer un adversaire si possible
+    let captureMove = null;
+    for (const i of validMoves) {
+      const current = player.tokens[i];
+      const next = current === -1 ? 0 : current + value;
+      const absIdx = getAbsIndex(player.color, next);
+      if (absIdx !== null && !SAFE_ABS_INDEXES.includes(absIdx)) {
+        const wouldCapture = soloState.players.some((p, pIdx) =>
+          pIdx !== soloState.currentIndex && p.tokens.some(pos => getAbsIndex(p.color, pos) === absIdx)
+        );
+        if (wouldCapture) { captureMove = i; break; }
+      }
+    }
+    if (captureMove !== null) {
+      chosen = captureMove;
+    } else if (soloDifficulty === 'difficile') {
+      // Difficile : évite d'exposer un pion à une capture adverse au tour suivant, sinon avance le plus proche de l'arrivée
+      const safeMoves = validMoves.filter(i => {
+        const current = player.tokens[i];
+        const next = current === -1 ? 0 : current + value;
+        const absIdx = getAbsIndex(player.color, next);
+        if (absIdx === null || SAFE_ABS_INDEXES.includes(absIdx)) return true;
+        // Un adversaire peut-il atteindre cette case avec 1 à 6 ?
+        return !soloState.players.some((p, pIdx) => {
+          if (pIdx === soloState.currentIndex) return false;
+          return p.tokens.some(pos => {
+            const oAbs = getAbsIndex(p.color, pos);
+            if (oAbs === null) return false;
+            for (let d = 1; d <= 6; d++) {
+              if ((oAbs + d) % 52 === absIdx) return true;
+            }
+            return false;
+          });
+        });
+      });
+      const pool = safeMoves.length ? safeMoves : validMoves;
+      chosen = pool.reduce((best, i) => player.tokens[i] > player.tokens[best] ? i : best, pool[0]);
+    } else {
+      // Moyen : priorité sortir du yard, sinon avancer le pion le plus avancé
+      const exitMove = validMoves.find(i => player.tokens[i] === -1);
+      chosen = exitMove !== undefined
+        ? exitMove
+        : validMoves.reduce((best, i) => player.tokens[i] > player.tokens[best] ? i : best, validMoves[0]);
+    }
+  }
+
+  soloMoveTokenLocal(chosen);
+}
+
+function renderSolo() {
+  const board = document.getElementById('board');
+  board.querySelectorAll('.token').forEach(t => t.remove());
+
+  soloState.players.forEach((p) => {
+    p.tokens.forEach((pos, i) => {
+      const el = document.createElement('div');
+      el.className = `token token-${p.color}`;
+      const { top, left } = absolutePosition(p.color, pos, i);
+      el.style.top = top; el.style.left = left;
+      board.appendChild(el);
+    });
+  });
+
+  const dice = document.getElementById('diceBtn');
+  const status = document.getElementById('statusText');
+  const isMyTurn = soloState.currentIndex === 0;
+
+  if (soloState.status === 'terminee') {
+    dice.style.pointerEvents = 'none'; dice.style.opacity = 0.3;
+    const banner = document.getElementById('winnerBanner');
+    document.getElementById('winnerText').textContent = soloState.winnerIndex === 0
+      ? "🎉 Tu as gagné contre le robot !"
+      : "🤖 Le robot a gagné cette manche.";
+    banner.classList.remove('hidden');
+    return;
+  }
+
+  if (soloState.awaitingMove && isMyTurn) {
+    status.innerHTML = `Résultat : <b>${soloState.lastRoll}</b> — touche un pion à déplacer`;
+    enableSoloTokenSelection();
+  } else if (isMyTurn) {
+    status.innerHTML = `<b>À toi de jouer</b> — lance le dé`;
+  } else {
+    status.textContent = "Le robot joue...";
+  }
+
+  dice.style.pointerEvents = (isMyTurn && !soloState.awaitingMove) ? 'auto' : 'none';
+  dice.style.opacity = (isMyTurn && !soloState.awaitingMove) ? 1 : 0.4;
+}
+
+function enableSoloTokenSelection() {
+  const board = document.getElementById('board');
+  const player = soloState.players[0];
+  const validMoves = getValidMoves(player.tokens, soloState.lastRoll);
+  const tokenEls = [...board.querySelectorAll(`.token-${player.color}`)];
+  tokenEls.forEach((el, i) => {
+    if (validMoves.includes(i)) {
+      el.style.cursor = 'pointer';
+      el.style.outline = '2px solid var(--gold)';
+      el.onclick = () => soloMoveTokenLocal(i);
+    } else {
+      el.style.cursor = 'default';
+      el.style.outline = 'none';
+      el.onclick = null;
+    }
+  });
+}
+
+function enterGame(gameId) {
+  soloMode = false;
+  currentGameId = gameId;
+  showScreen('screenGame');
+  document.getElementById('winnerBanner').classList.add('hidden');
+  buildBoardSkeleton();
+  if (unsubGame) unsubGame();
+  unsubGame = onSnapshot(doc(db, 'games', gameId), (snap) => renderGame(snap.data()));
+}
+
+function buildBoardSkeleton() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let r = 0; r < 15; r++) {
+    for (let c = 0; c < 15; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (r < 6 && c < 6) cell.classList.add('yard-red');
+      else if (r < 6 && c > 8) cell.classList.add('yard-green');
+      else if (r > 8 && c > 8) cell.classList.add('yard-yellow');
+      else if (r > 8 && c < 6) cell.classList.add('yard-blue');
+      else if (r === 7 && c === 7) cell.classList.add('center');
+      else cell.classList.add('path-cell');
+      board.appendChild(cell);
+    }
+  }
+  Object.entries(HOME_STRETCH).forEach(([color, cells]) => {
+    cells.forEach(([r, c]) => {
+      board.children[r * 15 + c].className = 'cell home-' + color;
+    });
+  });
+}
+
+function renderGame(game) {
+  if (!game) return;
+  const board = document.getElementById('board');
+  board.querySelectorAll('.token').forEach(t => t.remove());
+
+  Object.entries(game.tokens || {}).forEach(([uid, positions]) => {
+    const color = game.colors[uid];
+    positions.forEach((pos, i) => {
+      const el = document.createElement('div');
+      el.className = `token token-${color}`;
+      const { top, left } = absolutePosition(color, pos, i);
+      el.style.top = top; el.style.left = left;
+      board.appendChild(el);
+    });
+  });
+
+  const isMyTurn = game.currentTurnUid === currentUser.uid;
+  const dice = document.getElementById('diceBtn');
+  const status = document.getElementById('statusText');
+
+  if (game.status === 'terminee') {
+    dice.style.pointerEvents = 'none'; dice.style.opacity = 0.3;
+    showWinnerBanner(game.winnerUid);
+    return;
+  }
+
+  if (game.awaitingMove && isMyTurn) {
+    status.innerHTML = `Résultat : <b>${game.lastRoll}</b> — touche un pion à déplacer`;
+    enableTokenSelection(game);
+  } else if (isMyTurn) {
+    status.innerHTML = `<b>À toi de jouer</b> — lance le dé`;
+  } else {
+    status.textContent = "En attente de l'adversaire...";
+  }
+
+  dice.style.pointerEvents = (isMyTurn && !game.awaitingMove) ? 'auto' : 'none';
+  dice.style.opacity = (isMyTurn && !game.awaitingMove) ? 1 : 0.4;
+}
+
+async function showWinnerBanner(winnerUid) {
+  const banner = document.getElementById('winnerBanner');
+  const text = document.getElementById('winnerText');
+  const winnerSnap = await getDoc(doc(db, 'users', winnerUid));
+  const w = winnerSnap.data() || {};
+  text.textContent = winnerUid === currentUser.uid
+    ? `🎉 Tu as gagné ! +XP et +pièces crédités`
+    : `🏆 ${w.pseudo || 'Un joueur'} a gagné la partie`;
+  banner.classList.remove('hidden');
+}
+
+function enableTokenSelection(game) {
+  const board = document.getElementById('board');
+  const tokenEls = [...board.querySelectorAll(`.token-${game.colors[currentUser.uid]}`)];
+  tokenEls.forEach((el, i) => { el.style.cursor = 'pointer'; el.onclick = () => moveToken(i); });
+}
+
+async function moveToken(tokenIndex) {
+  const idToken = await currentUser.getIdToken();
+  const res = await fetch('/api/move-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+    body: JSON.stringify({ gameId: currentGameId, tokenIndex }),
+  });
+  const data = await res.json();
+  if (data.error) alert("Coup impossible : " + data.error);
+}
+
+document.getElementById('diceBtn').addEventListener('click', async () => {
+  const dice = document.getElementById('diceBtn');
+  dice.classList.add('rolling');
+
+  if (soloMode) {
+    soloRollDice();
+    setTimeout(() => dice.classList.remove('rolling'), 500);
+    dice.textContent = soloState.lastRoll ?? '🎲';
+    return;
+  }
+
+  const idToken = await currentUser.getIdToken();
+  const res = await fetch('/api/roll-dice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+    body: JSON.stringify({ gameId: currentGameId }),
+  });
+  const data = await res.json();
+  setTimeout(() => dice.classList.remove('rolling'), 500);
+  if (data.error) alert("Erreur : " + data.error);
+  else dice.textContent = data.value;
+});
+</script>
+</body>
+</html>
